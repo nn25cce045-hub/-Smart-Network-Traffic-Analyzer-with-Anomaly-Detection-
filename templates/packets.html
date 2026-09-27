@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Live Packets{% endblock %}
+{% block crumb %}LIVE PACKETS{% endblock %}
+{% block content %}
+<section class="page-heading compact">
+  <div><p class="eyebrow">PACKET INSPECTION</p><h1>Live packet stream</h1><p>The latest captured traffic, refreshed automatically.</p></div>
+  <div class="stream-indicator"><i class="status-pulse"></i><span id="streamStatus">WAITING FOR CAPTURE</span></div>
+</section>
+<section class="panel packet-panel">
+  <div class="packet-toolbar">
+    <div class="filter-group" id="protocolFilters">
+      {% for protocol in ['All', 'TCP', 'UDP', 'DNS', 'HTTP', 'ICMP'] %}<button class="filter-btn {{ 'active' if protocol == 'All' }}" data-protocol="{{ protocol }}">{{ protocol }}</button>{% endfor %}
+    </div>
+    <label class="search-box"><span>⌕</span><input type="search" id="ipSearch" placeholder="Search source or destination IP" autocomplete="off"></label>
+  </div>
+  <div class="packet-summary"><span><b id="visibleCount">0</b> packets shown</span><span>Backend retains latest 1,000</span></div>
+  <div class="table-scroll packet-table-wrap"><table class="packet-table"><thead><tr><th>TIME</th><th>SOURCE IP</th><th>SOURCE PORT</th><th>DESTINATION IP</th><th>DEST. PORT</th><th>PROTOCOL</th><th>SIZE</th></tr></thead><tbody id="packetRows"><tr class="empty-row"><td colspan="7">No packets captured yet.</td></tr></tbody></table></div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/packets.js') }}"></script>{% endblock %}
+

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Passive real-time network traffic monitoring dashboard">
+  <title>{% block title %}Overview{% endblock %} · Smart Network Traffic Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path d="M7 20.5 16 26l9-5.5V11L16 6l-9 5v9.5Z"/><path d="m7 11 9 5 9-5M16 16v10"/></svg>
+        </span>
+        <span><strong>NETRA</strong><small>TRAFFIC INTELLIGENCE</small></span>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Primary navigation">
+        <span class="nav-label">MONITOR</span>
+        <a href="{{ url_for('dashboard') }}" class="nav-link {{ 'active' if active_page == 'dashboard' }}">
+          <span class="nav-icon">⌁</span><span>Dashboard</span>
+        </a>
+        <a href="{{ url_for('packets_page') }}" class="nav-link {{ 'active' if active_page == 'packets' }}">
+          <span class="nav-icon">≋</span><span>Live Packets</span><i class="live-dot"></i>
+        </a>
+        <a href="{{ url_for('traffic_page') }}" class="nav-link {{ 'active' if active_page == 'traffic' }}">
+          <span class="nav-icon">⌁</span><span>Traffic Analysis</span>
+        </a>
+        <span class="nav-label nav-section">INTELLIGENCE</span>
+        <a href="{{ url_for('alerts_page') }}" class="nav-link {{ 'active' if active_page == 'alerts' }}">
+          <span class="nav-icon">△</span><span>Alerts</span><i class="alert-nav-dot"></i>
+        </a>
+        <a href="{{ url_for('network_page') }}" class="nav-link {{ 'active' if active_page == 'network' }}">
+          <span class="nav-icon">⌘</span><span>Network Map</span><i class="map-nav-dot"></i>
+        </a>
+        <a href="{{ url_for('history_page') }}" class="nav-link {{ 'active' if active_page == 'history' }}">
+          <span class="nav-icon">◷</span><span>History / Analytics</span><i class="history-nav-dot"></i>
+        </a>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="system-row"><span><i class="status-pulse"></i> SYSTEM ONLINE</span><small>PART 4</small></div>
+        <div class="version">Passive intelligence <span>v4.0.0</span></div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="menu-button" id="menuButton" aria-label="Open navigation">☰</button>
+        <div class="breadcrumb"><span>MONITOR</span><b>/</b><strong>{% block crumb %}DASHBOARD{% endblock %}</strong></div>
+        <div class="topbar-meta">
+          <span class="clock" id="liveClock">--:--:--</span>
+          <span class="capture-chip stopped" id="globalCaptureState"><i></i> STOPPED</span>
+        </div>
+      </header>
+      <div class="content-wrap">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

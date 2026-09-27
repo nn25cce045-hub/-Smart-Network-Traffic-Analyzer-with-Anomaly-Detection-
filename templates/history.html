@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}History & Analytics{% endblock %}
+{% block crumb %}HISTORY / ANALYTICS{% endblock %}
+{% block head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>{% endblock %}
+{% block content %}
+<section class="page-heading compact history-heading">
+  <div><p class="eyebrow">PERSISTENT AGGREGATED METADATA</p><h1>History & analytics</h1><p>Review stored traffic summaries, anomaly periods, talkers, connections, and alerts.</p></div>
+  <div class="history-report-actions"><a class="btn graph-btn" id="csvReport" href="/api/history/export?range=1h">DOWNLOAD CSV</a><a class="btn btn-start" id="printReport" href="/history/report?range=1h" target="_blank">PRINT REPORT</a></div>
+</section>
+
+<section class="history-range-bar">
+  <span>TIME RANGE</span>
+  <div id="historyRanges">
+    <button data-range="15m">Last 15 Minutes</button><button class="active" data-range="1h">Last 1 Hour</button><button data-range="6h">Last 6 Hours</button><button data-range="24h">Last 24 Hours</button><button data-range="7d">Last 7 Days</button>
+  </div>
+</section>
+
+<div class="history-no-data hidden" id="historyNoData">No historical data available for the selected period.</div>
+
+<section class="history-summary">
+  <article><small>TOTAL TRAFFIC</small><strong id="historyTraffic">0 B</strong><span id="historyPackets">0 packets</span></article>
+  <article><small>AVERAGE PACKETS / SEC</small><strong id="historyAvgPps">0.0</strong><span>Stored interval average</span></article>
+  <article><small>PEAK PACKETS / SEC</small><strong id="historyPeakPps">0.0</strong><span>Highest stored interval</span></article>
+  <article><small>AVERAGE THROUGHPUT</small><strong id="historyAvgThroughput">0 bps</strong><span>Across stored intervals</span></article>
+  <article><small>TOTAL ALERTS</small><strong id="historyAlerts">0</strong><span>Selected period</span></article>
+  <article class="critical"><small>CRITICAL ALERTS</small><strong id="historyCritical">0</strong><span>Selected period</span></article>
+</section>
+
+<section class="history-chart-grid">
+  <article class="panel chart-panel history-wide"><header><div><small>NORMAL BASELINE COMPARISON</small><h2>Actual traffic vs baseline</h2></div><span class="panel-tag">PACKETS / SEC</span></header><div class="chart-wrap history-line-chart"><canvas id="historyTrafficChart"></canvas></div></article>
+  <article class="panel chart-panel"><header><div><small>TRAFFIC VOLUME</small><h2>Throughput history</h2></div><span class="panel-tag">BITS / SEC</span></header><div class="chart-wrap history-small-chart"><canvas id="historyThroughputChart"></canvas></div></article>
+  <article class="panel chart-panel"><header><div><small>HISTORICAL MIX</small><h2>Protocol distribution</h2></div></header><div class="chart-wrap history-small-chart"><canvas id="historyProtocolChart"></canvas></div><div class="chart-legend" id="historyProtocolLegend"></div></article>
+  <article class="panel chart-panel"><header><div><small>ANOMALY EVENTS</small><h2>Alert timeline</h2></div></header><div class="chart-wrap history-small-chart"><canvas id="historyAlertChart"></canvas></div></article>
+</section>
+
+<section class="panel comparison-panel">
+  <header><div><small>BASELINE INTERPRETATION</small><h2>Normal vs abnormal traffic</h2></div><span class="panel-tag">ABNORMAL ≠ MALICIOUS</span></header>
+  <div class="comparison-content">
+    <div class="comparison-chart"><canvas id="historyComparisonChart"></canvas></div>
+    <article class="normal"><small>NORMAL TRAFFIC</small><strong id="normalPercent">0%</strong><p>Average: <b id="normalAverage">0.0</b> packets/sec</p><p>Peak: <b id="normalPeak">0.0</b> packets/sec</p></article>
+    <article class="abnormal"><small>ABNORMAL TRAFFIC</small><strong id="abnormalPercent">0%</strong><p>Average: <b id="abnormalAverage">0.0</b> packets/sec</p><p>Peak: <b id="abnormalPeak">0.0</b> packets/sec</p><p>Events: <b id="anomalyEvents">0</b></p></article>
+    <p class="comparison-note">Abnormal traffic represents intervals that deviated from the configured baseline or remained under an anomaly-generated network status. It is not proof of malicious activity.</p>
+  </div>
+</section>
+
+<section class="history-table-grid">
+  <article class="panel"><header><div><small>AGGREGATED ENDPOINTS</small><h2>Top talkers</h2></div></header><div class="table-scroll"><table><thead><tr><th>IP ADDRESS</th><th>PACKETS</th><th>TRAFFIC</th><th>SENT / RECEIVED</th></tr></thead><tbody id="topTalkers"><tr class="empty-row"><td colspan="4">No historical talker data.</td></tr></tbody></table></div></article>
+  <article class="panel"><header><div><small>BIDIRECTIONAL FLOWS</small><h2>Top connections</h2></div></header><div class="table-scroll"><table><thead><tr><th>CONNECTION</th><th>PACKETS</th><th>TRAFFIC</th></tr></thead><tbody id="topConnections"><tr class="empty-row"><td colspan="3">No historical connection data.</td></tr></tbody></table></div></article>
+</section>
+
+<section class="panel history-alert-panel">
+  <header><div><small>PERSISTED FINDINGS</small><h2>Alert history</h2></div><div class="history-alert-counts"><span>PORT SCAN <b id="historyPortScans">0</b></span><span>TRAFFIC SPIKE <b id="historySpikes">0</b></span><span>MOST ALERTED <b id="historyAlertedSource">—</b></span></div></header>
+  <div class="table-scroll"><table><thead><tr><th>TIME</th><th>SEVERITY</th><th>TYPE</th><th>SOURCE</th><th>DESCRIPTION</th></tr></thead><tbody id="historyAlertRows"><tr class="empty-row"><td colspan="5">No persisted alerts in this period.</td></tr></tbody></table></div>
+</section>
+
+{% if demo_mode %}
+<section class="panel history-demo-panel">
+  <div><p class="eyebrow">DEMO — SYNTHETIC DATA ONLY</p><h2>Historical presentation timeline</h2><p>Creates 30 minutes of internal aggregate samples: normal traffic, gradual growth, a critical spike, a warning port pattern, then recovery. No network traffic is generated.</p></div>
+  <div><button class="btn demo-btn warning" id="generateDemoHistory">GENERATE DEMO HISTORY</button><button class="btn demo-reset" id="clearDemoHistory">CLEAR DEMO DATA</button></div>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/history.js') }}"></script>{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Network Map{% endblock %}
+{% block crumb %}NETWORK MAP{% endblock %}
+{% block head %}<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js"></script>{% endblock %}
+{% block content %}
+<section class="page-heading compact network-heading">
+  <div><p class="eyebrow">PASSIVE COMMUNICATION TOPOLOGY</p><h1>Network map</h1><p>Observed IP relationships only—this is not an active device scan or complete network inventory.</p></div>
+  <div class="stream-indicator" id="mapLiveStatus"><i class="status-pulse"></i><span>LIVE UPDATE ON</span></div>
+</section>
+
+<section class="graph-stats" aria-label="Observed network statistics">
+  <article><small>OBSERVED DEVICES</small><strong id="graphDevices">0</strong></article>
+  <article><small>ACTIVE CONNECTIONS</small><strong id="graphConnections">0</strong></article>
+  <article><small>LOCAL DEVICES</small><strong id="graphLocal">0</strong></article>
+  <article><small>EXTERNAL DEVICES</small><strong id="graphExternal">0</strong></article>
+  <article class="suspicious"><small>SUSPICIOUS DEVICES</small><strong id="graphSuspicious">0</strong></article>
+</section>
+
+<section class="panel graph-workspace">
+  <div class="graph-toolbar">
+    <div class="graph-filter-set">
+      <label>PROTOCOL<select id="graphProtocol"><option value="ALL">All Traffic</option><option>TCP</option><option>UDP</option><option>DNS</option><option>HTTP</option><option>ICMP</option></select></label>
+      <label>DEVICES<select id="graphDeviceType"><option value="ALL">All Devices</option><option value="LOCAL">Local Only</option><option value="EXTERNAL">External Only</option><option value="SUSPICIOUS">Suspicious Only</option></select></label>
+      <label>MINIMUM PACKETS<select id="graphMinPackets"><option>1</option><option>5</option><option>10</option><option>50</option><option>100</option></select></label>
+    </div>
+    <div class="graph-actions">
+      <button class="btn graph-btn" id="toggleGraphLive">PAUSE LIVE UPDATE</button>
+      <button class="btn graph-btn" id="fitGraph">FIT GRAPH</button>
+      <button class="btn graph-btn" id="resetGraphView">RESET VIEW</button>
+    </div>
+  </div>
+
+  <div class="graph-layout">
+    <div class="graph-canvas-wrap">
+      <div id="networkGraph" role="img" aria-label="Interactive graph of observed IP communications"></div>
+      <div class="graph-empty" id="graphEmpty"><strong>NO OBSERVED COMMUNICATION YET</strong><span>Start packet capture or use safe demo mode on the Alerts page.</span></div>
+      <div class="graph-legend" aria-label="Network map legend">
+        <span><i class="legend-node local"></i>Local</span>
+        <span><i class="legend-node external"></i>External</span>
+        <span><i class="legend-node special"></i>Special</span>
+        <span><i class="legend-node warning"></i>Warning border</span>
+        <span><i class="legend-node critical"></i>Critical border</span>
+      </div>
+    </div>
+
+    <aside class="graph-details" id="graphDetails">
+      <div class="details-placeholder"><span>⌘</span><h2>Select a node or connection</h2><p>Details about observed traffic and security status will appear here.</p></div>
+    </aside>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/network.js') }}"></script>{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Alerts{% endblock %}
+{% block crumb %}ALERTS{% endblock %}
+{% block content %}
+<section class="page-heading compact">
+  <div><p class="eyebrow">ANOMALY INTELLIGENCE</p><h1>Alert center</h1><p>Explainable findings from passive port-pattern and traffic-volume analysis.</p></div>
+  <div class="status-banner normal" id="alertNetworkStatus"><small>NETWORK STATUS</small><strong>NORMAL</strong></div>
+</section>
+
+<section class="alert-summary" aria-label="Alert totals">
+  <article><small>TOTAL ALERTS</small><strong id="totalAlerts">0</strong><span>Retained this session</span></article>
+  <article class="info"><small>INFO</small><strong id="infoAlerts">0</strong><span>Unusual observations</span></article>
+  <article class="warning"><small>WARNING</small><strong id="warningAlerts">0</strong><span>Review recommended</span></article>
+  <article class="critical"><small>CRITICAL</small><strong id="criticalAlerts">0</strong><span>Immediate attention</span></article>
+</section>
+
+{% if demo_mode %}
+<section class="panel demo-panel">
+  <div><p class="eyebrow">DEMO — SYNTHETIC DATA ONLY</p><h2>Safe presentation controls</h2><p>These actions submit internal metadata to the detectors. They do not send packets, scan hosts, or create network traffic.</p></div>
+  <div class="demo-actions">
+    <button class="btn demo-btn" data-scenario="normal">SIMULATE NORMAL TRAFFIC</button>
+    <button class="btn demo-btn warning" data-scenario="port_scan">SIMULATE PORT-SCAN PATTERN</button>
+    <button class="btn demo-btn critical" data-scenario="traffic_spike">SIMULATE TRAFFIC SPIKE</button>
+    <button class="btn demo-reset" id="resetDemo">RESET DEMO DATA</button>
+  </div>
+</section>
+{% endif %}
+
+<section class="panel alert-table-panel">
+  <div class="packet-toolbar alert-toolbar">
+    <div class="filter-group" id="alertFilters">
+      {% for label, value in [('All', 'ALL'), ('Info', 'INFO'), ('Warning', 'WARNING'), ('Critical', 'CRITICAL'), ('Port Scan', 'PORT_SCAN'), ('Traffic Spike', 'TRAFFIC_SPIKE')] %}<button class="filter-btn {{ 'active' if value == 'ALL' }}" data-filter="{{ value }}">{{ label }}</button>{% endfor %}
+    </div>
+    <label class="search-box"><span>⌕</span><input type="search" id="alertSearch" placeholder="Search IP or description" autocomplete="off"></label>
+  </div>
+  <div class="packet-summary"><span><b id="visibleAlertCount">0</b> alerts shown</span><span>Latest 500 retained in memory</span></div>
+  <div class="table-scroll alert-table-wrap"><table class="alert-table"><thead><tr><th>TIME</th><th>SEVERITY</th><th>TYPE</th><th>SOURCE</th><th>DESTINATION</th><th>DESCRIPTION</th></tr></thead><tbody id="alertRows"><tr class="empty-row"><td colspan="6">No anomaly alerts have been generated.</td></tr></tbody></table></div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/alerts.js') }}"></script>{% endblock %}

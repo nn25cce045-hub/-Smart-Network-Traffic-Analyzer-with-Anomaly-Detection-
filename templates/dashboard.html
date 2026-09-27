@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block crumb %}DASHBOARD{% endblock %}
+{% block head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div><p class="eyebrow">REAL-TIME TELEMETRY</p><h1>Network overview</h1><p>Observe packet activity and protocol health across your selected interface.</p></div>
+  <div class="capture-controls">
+    <label for="interfaceSelect">NETWORK INTERFACE</label>
+    <div class="control-row">
+      <select id="interfaceSelect"><option>Loading interfaces…</option></select>
+      <button class="btn btn-start" id="startCapture"><span>▶</span> START CAPTURE</button>
+      <button class="btn btn-stop" id="stopCapture" disabled><span>■</span> STOP</button>
+    </div>
+    <p class="capture-error" id="captureError"></p>
+  </div>
+</section>
+
+<section class="primary-stats" aria-label="Current traffic statistics">
+  <article class="metric-card featured"><span class="metric-icon">∿</span><div><small>TOTAL PACKETS</small><strong id="totalPackets">0</strong><p><i class="status-pulse"></i> LIVE COUNTER</p></div></article>
+  <article class="metric-card"><small>PACKETS / SEC</small><strong id="packetsPerSecond">0.0</strong><p>5-second rolling rate</p></article>
+  <article class="metric-card"><small>THROUGHPUT</small><strong id="throughput">0 bps</strong><p>Approximate wire rate</p></article>
+  <article class="metric-card"><small>CAPTURE STATE</small><strong class="state-value" id="captureState">STOPPED</strong><p id="activeInterface">No interface selected</p></article>
+</section>
+
+<section class="protocol-strip">
+  {% for protocol in ['TCP', 'UDP', 'DNS', 'HTTP', 'ICMP', 'Other'] %}
+  <article><span class="protocol-token protocol-{{ protocol|lower }}">{{ protocol[:1] }}</span><div><small>{{ protocol|upper }} PACKETS</small><strong id="count{{ protocol }}">0</strong></div></article>
+  {% endfor %}
+</section>
+
+<section class="security-overview">
+  <article class="panel network-status-panel">
+    <div><small>CURRENT NETWORK STATUS</small><strong id="networkStatus" class="network-status normal"><i></i>NORMAL</strong><p id="networkStatusDetail">No recent anomaly alerts</p></div>
+    <a href="{{ url_for('alerts_page') }}">OPEN ALERT CENTER →</a>
+  </article>
+  <article class="panel dashboard-alerts">
+    <header><div><small>ACTIVE / RECENT ALERTS</small><h2>Detection activity</h2></div><span id="dashboardAlertCount" class="panel-tag">0 ALERTS</span></header>
+    <div id="dashboardAlertList" class="dashboard-alert-list"><p class="alert-empty">No anomalies detected. Monitoring rules are active.</p></div>
+  </article>
+</section>
+
+<section class="panel dashboard-network-overview">
+  <header><div><small>PASSIVE TOPOLOGY</small><h2>Network overview</h2></div><a href="{{ url_for('network_page') }}">OPEN NETWORK MAP →</a></header>
+  <div class="network-mini-stats">
+    <div><small>DEVICES OBSERVED</small><strong id="dashboardDevices">0</strong></div>
+    <div><small>ACTIVE CONNECTIONS</small><strong id="dashboardConnections">0</strong></div>
+    <div><small>SUSPICIOUS DEVICES</small><strong id="dashboardSuspicious">0</strong></div>
+    <p>Built only from IP communication visible to the selected capture interface.</p>
+  </div>
+</section>
+
+<section class="dashboard-grid">
+  <article class="panel chart-panel wide">
+    <header><div><small>NETWORK ACTIVITY</small><h2>Traffic over time</h2></div><span class="panel-tag">LAST 60 SECONDS</span></header>
+    <div class="chart-wrap line-chart"><canvas id="trafficChart"></canvas></div>
+  </article>
+  <article class="panel chart-panel">
+    <header><div><small>COMPOSITION</small><h2>Protocol distribution</h2></div></header>
+    <div class="chart-wrap doughnut-chart"><canvas id="protocolChart"></canvas><div class="chart-center"><strong id="chartTotal">0</strong><small>PACKETS</small></div></div>
+    <div class="chart-legend" id="protocolLegend"></div>
+  </article>
+</section>
+
+<section class="panel recent-panel">
+  <header><div><small>PACKET STREAM</small><h2>Most recent traffic</h2></div><a href="{{ url_for('packets_page') }}">VIEW ALL PACKETS →</a></header>
+  <div class="table-scroll"><table><thead><tr><th>TIME</th><th>SOURCE</th><th>DESTINATION</th><th>PROTOCOL</th><th>SIZE</th></tr></thead><tbody id="recentPackets"><tr class="empty-row"><td colspan="5">No packets captured yet. Select an interface to begin.</td></tr></tbody></table></div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>{% endblock %}

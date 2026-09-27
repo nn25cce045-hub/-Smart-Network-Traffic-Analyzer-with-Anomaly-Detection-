@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Traffic Analysis{% endblock %}
+{% block crumb %}TRAFFIC ANALYSIS{% endblock %}
+{% block head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>{% endblock %}
+{% block content %}
+<section class="page-heading compact"><div><p class="eyebrow">PROTOCOL & BASELINE TELEMETRY</p><h1>Traffic analysis</h1><p>Compare current activity with the learned moving baseline.</p></div></section>
+
+<section class="analysis-stats">
+  <article><small>CURRENT PACKETS / SEC</small><strong id="analysisCurrentPps">0.0</strong><span>5-second live rate</span></article>
+  <article><small>CURRENT THROUGHPUT</small><strong id="analysisThroughput">0 bps</strong><span>Approximate wire rate</span></article>
+  <article><small>BASELINE PACKETS / SEC</small><strong id="analysisBaseline">0.0</strong><span id="baselineReadiness">Warming up</span></article>
+  <article><small>BASELINE DEVIATION</small><strong id="analysisDeviation">0.0×</strong><span>Current ÷ baseline</span></article>
+  <article><small>UNIQUE SOURCE IPS</small><strong id="analysisSources">0</strong><span>Last 60 seconds</span></article>
+  <article><small>UNIQUE DESTINATION IPS</small><strong id="analysisDestinations">0</strong><span>Last 60 seconds</span></article>
+</section>
+
+<section class="analysis-layout">
+  <article class="panel chart-panel"><header><div><small>ALL CAPTURED TRAFFIC</small><h2>Protocol mix</h2></div></header><div class="chart-wrap analysis-doughnut"><canvas id="analysisProtocolChart"></canvas></div><div class="chart-legend" id="analysisLegend"></div></article>
+  <article class="panel chart-panel wide"><header><div><small>ANOMALY EVIDENCE</small><h2>Current traffic vs baseline</h2></div><span class="panel-tag">COMPLETED 1-SECOND SAMPLES</span></header><div class="chart-wrap line-chart"><canvas id="analysisTrafficChart"></canvas></div></article>
+</section>
+<section class="info-grid">
+  <article class="panel explanation-card"><span>01</span><h3>Rolling baseline</h3><p>Up to 30 recent non-anomalous one-second samples form the moving average. Detection waits for 10 samples.</p></article>
+  <article class="panel explanation-card"><span>02</span><h3>Spike threshold</h3><p>A completed second must reach at least 3× a baseline of 5 packets/sec or more before an alert is considered.</p></article>
+  <article class="panel explanation-card"><span>03</span><h3>False-positive control</h3><p>Warm-up, minimum activity, a 60-second cooldown, and exclusion of anomalous samples keep alerts understandable.</p></article>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/traffic.js') }}"></script>{% endblock %}
