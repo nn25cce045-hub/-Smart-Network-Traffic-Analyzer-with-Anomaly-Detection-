@@ -55,8 +55,8 @@
 
 {% if demo_mode %}
 <section class="panel history-demo-panel">
-  <div><p class="eyebrow">DEMO — SYNTHETIC DATA ONLY</p><h2>Historical presentation timeline</h2><p>Creates 30 minutes of internal aggregate samples: normal traffic, gradual growth, a critical spike, a warning port pattern, then recovery. No network traffic is generated.</p></div>
-  <div><button class="btn demo-btn warning" id="generateDemoHistory">GENERATE DEMO HISTORY</button><button class="btn demo-reset" id="clearDemoHistory">CLEAR DEMO DATA</button></div>
+  <div><p class="eyebrow">DEMO MODE — SYNTHETIC DATA ONLY</p><h2>Presentation controls are centralized</h2><p>Generate or clear synthetic history from the safe Demo Mode panel in the Alert Center.</p></div>
+  <div><a class="btn demo-btn" href="{{ url_for('alerts_page') }}">OPEN DEMO CONTROLS</a></div>
 </section>
 {% endif %}
 {% endblock %}

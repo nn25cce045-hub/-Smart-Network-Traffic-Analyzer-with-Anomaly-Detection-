@@ -55,7 +55,12 @@ class GraphManager:
         self._edges: dict[tuple[str, str], dict[str, Any]] = {}
         self._lock = RLock()
 
-    def observe_packet(self, packet: dict[str, Any], observed_at: float | None = None) -> bool:
+    def observe_packet(
+        self,
+        packet: dict[str, Any],
+        observed_at: float | None = None,
+        is_demo: bool = False,
+    ) -> bool:
         """Add one parsed packet to the graph; return False when it has no valid IP pair."""
         source = packet.get("source_ip")
         destination = packet.get("destination_ip")
@@ -77,6 +82,7 @@ class GraphManager:
             packet_count=1,
             total_bytes=packet_size,
             observed_at=observed_at,
+            is_demo=is_demo,
         )
         return True
 
@@ -88,6 +94,7 @@ class GraphManager:
         packet_count: int,
         total_bytes: int,
         observed_at: float | None = None,
+        is_demo: bool = False,
     ) -> None:
         """Aggregate a flow. Bulk counts are used only by synthetic demo input."""
         try:
@@ -108,8 +115,8 @@ class GraphManager:
             self._ensure_node_capacity_locked(destination, protected={source})
             source_node = self._nodes.setdefault(source, self._new_node(source, now))
             destination_node = self._nodes.setdefault(destination, self._new_node(destination, now))
-            self._update_node(source_node, protocol, count, byte_count, now, sent=True)
-            self._update_node(destination_node, protocol, count, byte_count, now, sent=False)
+            self._update_node(source_node, protocol, count, byte_count, now, sent=True, is_demo=is_demo)
+            self._update_node(destination_node, protocol, count, byte_count, now, sent=False, is_demo=is_demo)
 
             edge_key = tuple(sorted((source, destination)))
             if edge_key not in self._edges and len(self._edges) >= self.max_edges:
@@ -120,6 +127,10 @@ class GraphManager:
             edge["bytes"] += byte_count
             edge["protocols"][protocol] += count
             edge["_last_seen_epoch"] = now
+            if is_demo:
+                edge["_demo_packet_count"] += count
+                edge["_demo_bytes"] += byte_count
+                edge["_demo_protocols"][protocol] += count
 
     def apply_alert(self, alert: dict[str, Any]) -> None:
         """Apply an existing Part 2 alert to observed nodes without creating nodes."""
@@ -135,8 +146,53 @@ class GraphManager:
                 if not node:
                     continue
                 node["alert_count"] += 1
+                alert_kind = "_demo_alert_severities" if alert.get("is_demo", False) else "_real_alert_severities"
+                node[alert_kind][severity] += 1
                 if STATUS_RANK[severity] > STATUS_RANK[node["status"]]:
                     node["status"] = severity
+
+    def clear_demo_data(self) -> dict[str, int]:
+        """Subtract synthetic graph contributions while preserving captured observations."""
+        with self._lock:
+            removed_edges = 0
+            for key, edge in list(self._edges.items()):
+                edge["packet_count"] -= edge["_demo_packet_count"]
+                edge["bytes"] -= edge["_demo_bytes"]
+                for protocol, count in edge["_demo_protocols"].items():
+                    edge["protocols"][protocol] -= count
+                    if edge["protocols"][protocol] <= 0:
+                        del edge["protocols"][protocol]
+                edge["_demo_packet_count"] = 0
+                edge["_demo_bytes"] = 0
+                edge["_demo_protocols"].clear()
+                if edge["packet_count"] <= 0:
+                    del self._edges[key]
+                    removed_edges += 1
+
+            removed_nodes = 0
+            connected = {address for key in self._edges for address in key}
+            for address, node in list(self._nodes.items()):
+                node["packet_count"] -= node["_demo_packet_count"]
+                node["sent_packets"] -= node["_demo_sent_packets"]
+                node["received_packets"] -= node["_demo_received_packets"]
+                node["bytes"] -= node["_demo_bytes"]
+                for protocol, count in node["_demo_protocols"].items():
+                    node["protocols"][protocol] -= count
+                    if node["protocols"][protocol] <= 0:
+                        del node["protocols"][protocol]
+                demo_alerts = sum(node["_demo_alert_severities"].values())
+                node["alert_count"] = max(0, node["alert_count"] - demo_alerts)
+                node["_demo_packet_count"] = 0
+                node["_demo_sent_packets"] = 0
+                node["_demo_received_packets"] = 0
+                node["_demo_bytes"] = 0
+                node["_demo_protocols"].clear()
+                node["_demo_alert_severities"].clear()
+                node["status"] = self._highest_alert_status(node["_real_alert_severities"])
+                if node["packet_count"] <= 0 and address not in connected:
+                    del self._nodes[address]
+                    removed_nodes += 1
+            return {"nodes": removed_nodes, "edges": removed_edges}
 
     def snapshot(self, now: float | None = None) -> dict[str, Any]:
         """Return the complete bounded graph in frontend-ready form."""
@@ -191,6 +247,13 @@ class GraphManager:
             "status": "NORMAL",
             "_first_seen_epoch": timestamp,
             "_last_seen_epoch": timestamp,
+            "_demo_packet_count": 0,
+            "_demo_sent_packets": 0,
+            "_demo_received_packets": 0,
+            "_demo_bytes": 0,
+            "_demo_protocols": Counter(),
+            "_real_alert_severities": Counter(),
+            "_demo_alert_severities": Counter(),
         }
 
     @staticmethod
@@ -204,6 +267,9 @@ class GraphManager:
             "protocols": Counter(),
             "_first_seen_epoch": timestamp,
             "_last_seen_epoch": timestamp,
+            "_demo_packet_count": 0,
+            "_demo_bytes": 0,
+            "_demo_protocols": Counter(),
         }
 
     @staticmethod
@@ -214,12 +280,26 @@ class GraphManager:
         byte_count: int,
         timestamp: float,
         sent: bool,
+        is_demo: bool,
     ) -> None:
         node["packet_count"] += packet_count
         node["sent_packets" if sent else "received_packets"] += packet_count
         node["bytes"] += byte_count
         node["protocols"][protocol] += packet_count
         node["_last_seen_epoch"] = timestamp
+        if is_demo:
+            node["_demo_packet_count"] += packet_count
+            node["_demo_sent_packets" if sent else "_demo_received_packets"] += packet_count
+            node["_demo_bytes"] += byte_count
+            node["_demo_protocols"][protocol] += packet_count
+
+    @staticmethod
+    def _highest_alert_status(severities: Counter[str]) -> str:
+        if severities["CRITICAL"]:
+            return "CRITICAL"
+        if severities["WARNING"]:
+            return "WARNING"
+        return "NORMAL"
 
     def _ensure_node_capacity_locked(self, address: str, protected: set[str] | None = None) -> None:
         if address in self._nodes or len(self._nodes) < self.max_nodes:

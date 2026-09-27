@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from flask import Flask, Response, jsonify, render_template, request
 
 import config
@@ -17,13 +19,29 @@ from storage.history_service import HistoryService
 from storage.repositories import HistoryRepository, RANGE_SECONDS
 
 
+logger = logging.getLogger(__name__)
+
+
+def api_error(message: str, status_code: int):
+    """Return the consistent JSON error shape used by every API endpoint."""
+    return jsonify({"success": False, "error": message}), status_code
+
+
 def create_app(test_config: dict | None = None) -> Flask:
     app = Flask(__name__)
     app.config.from_object(config)
     if test_config:
         app.config.update(test_config)
+        if "DEMO_MODE" in test_config and "DEMO_MODE_ENABLED" not in test_config:
+            app.config["DEMO_MODE_ENABLED"] = bool(test_config["DEMO_MODE"])
+    app.config["DEMO_MODE"] = app.config["DEMO_MODE_ENABLED"]
 
-    metrics = TrafficMetrics(max_packets=app.config["MAX_PACKET_RESULTS"])
+    logging.basicConfig(
+        level=getattr(logging, str(app.config["LOG_LEVEL"]).upper(), logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+    )
+
+    metrics = TrafficMetrics(max_packets=app.config["PACKET_HISTORY_LIMIT"])
     alerts = AlertStore(max_alerts=app.config["MAX_ALERTS"])
     port_scan_detector = PortScanDetector(
         port_threshold=app.config["PORT_SCAN_PORT_THRESHOLD"],
@@ -41,7 +59,12 @@ def create_app(test_config: dict | None = None) -> Flask:
         cooldown_seconds=app.config["TRAFFIC_SPIKE_ALERT_COOLDOWN"],
     )
     database = Database(app.config["DATABASE_PATH"])
-    database.initialize()
+    try:
+        database.initialize()
+    except Exception:
+        logger.exception("Failed to initialize SQLite database at %s", database.path)
+        raise
+    logger.info("SQLite database initialized at %s", database.path)
     history_repository = HistoryRepository(database)
     graph_manager = GraphManager(
         edge_ttl_seconds=app.config["GRAPH_EDGE_TTL_SECONDS"],
@@ -117,6 +140,10 @@ def create_app(test_config: dict | None = None) -> Flask:
             raise ValueError("Invalid time range. Use 15m, 1h, 6h, 24h, or 7d.")
         return range_key
 
+    @app.context_processor
+    def application_metadata():
+        return {"app_version": app.config["APP_VERSION"]}
+
     @app.get("/history/report")
     def history_report():
         try:
@@ -140,9 +167,9 @@ def create_app(test_config: dict | None = None) -> Flask:
         try:
             limit = int(raw_limit)
         except ValueError:
-            return jsonify({"error": "The limit parameter must be an integer."}), 400
+            return api_error("The limit parameter must be an integer.", 400)
         if limit < 1:
-            return jsonify({"error": "The limit parameter must be at least 1."}), 400
+            return api_error("The limit parameter must be at least 1.", 400)
         return jsonify({"packets": metrics.recent_packets(limit), "count": min(limit, metrics.max_packets)})
 
     @app.get("/api/interfaces")
@@ -150,7 +177,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         try:
             return jsonify({"interfaces": capture.available_interfaces()})
         except RuntimeError as exc:
-            return jsonify({"error": str(exc)}), 503
+            return api_error(str(exc), 503)
 
     @app.get("/api/alerts")
     def api_alerts():
@@ -158,9 +185,9 @@ def create_app(test_config: dict | None = None) -> Flask:
         try:
             limit = int(raw_limit)
         except ValueError:
-            return jsonify({"error": "The limit parameter must be an integer."}), 400
+            return api_error("The limit parameter must be an integer.", 400)
         if limit < 1:
-            return jsonify({"error": "The limit parameter must be at least 1."}), 400
+            return api_error("The limit parameter must be at least 1.", 400)
         return jsonify({"alerts": alerts.recent(limit), "summary": alerts.summary()})
 
     @app.get("/api/anomaly/status")
@@ -191,14 +218,14 @@ def create_app(test_config: dict | None = None) -> Flask:
         try:
             return jsonify(history_service.analytics(requested_range()))
         except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+            return api_error(str(exc), 400)
 
     @app.get("/api/history/summary")
     def api_history_summary():
         try:
             return jsonify(history_repository.summary(requested_range()))
         except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+            return api_error(str(exc), 400)
 
     @app.get("/api/history/traffic")
     def api_history_traffic():
@@ -206,42 +233,42 @@ def create_app(test_config: dict | None = None) -> Flask:
             rows = history_repository.traffic(requested_range())
             return jsonify({"traffic": history_service.downsample(rows), "count": len(rows)})
         except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+            return api_error(str(exc), 400)
 
     @app.get("/api/history/protocols")
     def api_history_protocols():
         try:
             return jsonify({"protocols": history_repository.protocols(requested_range())})
         except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+            return api_error(str(exc), 400)
 
     @app.get("/api/history/alerts")
     def api_history_alerts():
         try:
             return jsonify(history_repository.alert_analytics(requested_range()))
         except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+            return api_error(str(exc), 400)
 
     @app.get("/api/history/top-talkers")
     def api_history_top_talkers():
         try:
             return jsonify({"top_talkers": history_repository.top_talkers(requested_range())})
         except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+            return api_error(str(exc), 400)
 
     @app.get("/api/history/top-connections")
     def api_history_top_connections():
         try:
             return jsonify({"top_connections": history_repository.top_connections(requested_range())})
         except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+            return api_error(str(exc), 400)
 
     @app.get("/api/history/comparison")
     def api_history_comparison():
         try:
             return jsonify(history_repository.comparison(requested_range()))
         except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+            return api_error(str(exc), 400)
 
     @app.get("/api/history/export")
     def api_history_export():
@@ -249,7 +276,7 @@ def create_app(test_config: dict | None = None) -> Flask:
             range_key = requested_range()
             csv_data = history_service.csv_report(range_key)
         except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+            return api_error(str(exc), 400)
         return Response(
             csv_data,
             mimetype="text/csv",
@@ -259,67 +286,72 @@ def create_app(test_config: dict | None = None) -> Flask:
     @app.post("/api/history/demo/generate")
     def api_history_demo_generate():
         if not app.config["DEMO_MODE"]:
-            return jsonify({"error": "Synthetic demo mode is disabled."}), 403
+            return api_error("Synthetic demo mode is disabled.", 403)
         if capture.status()["capturing"]:
-            return jsonify({"error": "Stop live capture before generating demo history."}), 409
+            return api_error("Stop live capture before generating demo history.", 409)
         result = history_service.generate_demo_history()
         return jsonify({"message": "Synthetic historical timeline generated.", **result})
 
     @app.post("/api/history/demo/clear")
     def api_history_demo_clear():
         if not app.config["DEMO_MODE"]:
-            return jsonify({"error": "Synthetic demo mode is disabled."}), 403
+            return api_error("Synthetic demo mode is disabled.", 403)
         result = history_service.clear_demo_data()
         return jsonify({"message": "Only synthetic historical data was removed.", "deleted": result})
 
     @app.post("/api/demo/simulate")
     def api_demo_simulate():
         if not app.config["DEMO_MODE"]:
-            return jsonify({"error": "Synthetic demo mode is disabled."}), 403
+            return api_error("Synthetic demo mode is disabled.", 403)
         if capture.status()["capturing"]:
-            return jsonify({"error": "Stop live capture before running a synthetic demonstration."}), 409
+            return api_error("Stop live capture before running a synthetic demonstration.", 409)
         data = request.get_json(silent=True) or {}
         try:
             result = anomaly_detector.simulate(str(data.get("scenario", "")))
         except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+            return api_error(str(exc), 400)
         return jsonify(result)
 
     @app.post("/api/demo/reset")
     def api_demo_reset():
         if not app.config["DEMO_MODE"]:
-            return jsonify({"error": "Synthetic demo mode is disabled."}), 403
+            return api_error("Synthetic demo mode is disabled.", 403)
         if capture.status()["capturing"]:
-            return jsonify({"error": "Stop live capture before resetting demo data."}), 409
-        anomaly_detector.reset_demo_state()
-        return jsonify({"message": "Alerts, detector state, and synthetic graph data were cleared."})
+            return api_error("Stop live capture before resetting demo data.", 409)
+        deleted = anomaly_detector.reset_demo_state()
+        return jsonify({"message": "Synthetic alerts, history, detector state, and graph data were cleared.", "deleted": deleted})
 
     @app.post("/api/capture/start")
     def api_capture_start():
         data = request.get_json(silent=True) or {}
         interface = data.get("interface")
         if not isinstance(interface, str) or not interface.strip():
-            return jsonify({"error": "Select a network interface before starting capture."}), 400
+            return api_error("Select a network interface before starting capture.", 400)
         started, message = capture.start(interface.strip())
         status_code = 200 if started else 409
-        return jsonify({"message" if started else "error": message, **capture.status()}), status_code
+        if not started:
+            return jsonify({"success": False, "error": message, **capture.status()}), status_code
+        return jsonify({"message": message, **capture.status()}), status_code
 
     @app.post("/api/capture/stop")
     def api_capture_stop():
         stopped, message = capture.stop()
         status_code = 200 if stopped else 409
-        return jsonify({"message" if stopped else "error": message, **capture.status()}), status_code
+        if not stopped:
+            return jsonify({"success": False, "error": message, **capture.status()}), status_code
+        return jsonify({"message": message, **capture.status()}), status_code
 
     @app.errorhandler(404)
     def not_found(_error):
         if request.path.startswith("/api/"):
-            return jsonify({"error": "API endpoint not found."}), 404
+            return api_error("API endpoint not found.", 404)
         return render_template("404.html", active_page=""), 404
 
     @app.errorhandler(500)
     def server_error(_error):
         if request.path.startswith("/api/"):
-            return jsonify({"error": "An unexpected server error occurred."}), 500
+            logger.error("Unhandled API error on %s", request.path, exc_info=True)
+            return api_error("An unexpected server error occurred.", 500)
         return render_template("500.html", active_page=""), 500
 
     return app
@@ -330,4 +362,7 @@ app = create_app()
 
 if __name__ == "__main__":
     # The reloader is disabled so it cannot create a duplicate capture controller.
-    app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
+    logger.info("Smart Network Traffic Analyzer v%s", app.config["APP_VERSION"])
+    logger.info("Demo mode: %s", "Enabled" if app.config["DEMO_MODE"] else "Disabled")
+    logger.info("Open http://127.0.0.1:5000")
+    app.run(host="127.0.0.1", port=5000, debug=app.config["DEBUG"], use_reloader=False)

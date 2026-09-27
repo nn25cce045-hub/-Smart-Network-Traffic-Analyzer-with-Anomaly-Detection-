@@ -123,6 +123,7 @@ class TrafficSpikeDetector:
                 "increase_ratio": round(ratio, 2),
                 "bytes_per_second": round(float(bytes_per_second), 2),
                 "baseline_samples": self._baseline.sample_count,
+                "minimum_samples_required": self._baseline.minimum_samples,
             },
         }
 
@@ -141,6 +142,7 @@ class TrafficSpikeDetector:
                 "baseline_pps": round(baseline, 2),
                 "baseline_samples": self._baseline.sample_count,
                 "baseline_ready": self._baseline.ready,
+                "minimum_samples_required": self._baseline.minimum_samples,
                 "current_second_packets": round(current, 2),
                 "deviation_ratio": round(current / baseline, 2) if baseline > 0 else 0.0,
                 "spike_multiplier": self.spike_multiplier,

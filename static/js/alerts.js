@@ -66,11 +66,23 @@ document.querySelectorAll("button[data-scenario]").forEach(button => button.addE
       method: "POST",
       body: JSON.stringify({ scenario: button.dataset.scenario })
     });
-    Netra.showToast(`${result.message} ${result.alerts_created} alert(s) created.`);
     await refreshAlerts();
+    const newLabel = result.alerts_created === 1 ? "alert" : "alerts";
+    const retainedLabel = alerts.length === 1 ? "alert" : "alerts";
+    Netra.showToast(`${result.message} This run added ${result.alerts_created} new ${newLabel}; ${alerts.length} ${retainedLabel} retained total.`);
   } catch (error) { Netra.showToast(error.message, true); }
   finally { button.disabled = false; }
 }));
+
+document.getElementById("generateDemoHistory")?.addEventListener("click", async event => {
+  event.currentTarget.disabled = true;
+  try {
+    const result = await Netra.request("/api/history/demo/generate", { method: "POST", body: "{}" });
+    Netra.showToast(`${result.message} ${result.samples} samples created.`);
+    await refreshAlerts();
+  } catch (error) { Netra.showToast(error.message, true); }
+  finally { event.currentTarget.disabled = false; }
+});
 
 document.getElementById("resetDemo")?.addEventListener("click", async () => {
   try {

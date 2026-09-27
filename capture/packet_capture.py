@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 from threading import Event, RLock, Thread
 from typing import Callable, Any
 
 from scapy.all import get_if_addr, get_if_list, sniff
 
 from capture.packet_parser import parse_packet
+
+
+logger = logging.getLogger(__name__)
 
 
 class PacketCapture:
@@ -66,6 +70,7 @@ class PacketCapture:
                 daemon=True,
             )
             self._thread.start()
+            logger.info("Packet capture started on interface %s", interface)
             return True, f"Capture started on {interface}."
 
     def stop(self) -> tuple[bool, str]:
@@ -74,9 +79,11 @@ class PacketCapture:
             if not self._running:
                 return False, "Packet capture is already stopped."
             self._stop_event.set()
+            logger.info("Packet capture stop requested for interface %s", self._interface)
             return True, "Capture is stopping."
 
     def _capture_loop(self) -> None:
+        error: str | None = None
         try:
             while not self._stop_event.is_set():
                 # A short timeout lets STOP CAPTURE take effect even when traffic is idle.
@@ -88,24 +95,31 @@ class PacketCapture:
                     stop_filter=lambda _packet: self._stop_event.is_set(),
                 )
         except PermissionError:
-            self._last_error = (
+            error = (
                 "Permission denied. Run the application with packet-capture privileges "
                 "or grant the Python interpreter the required capabilities."
             )
+            logger.warning("Packet capture permission denied on interface %s", self._interface)
         except OSError as exc:
-            self._last_error = f"Packet capture failed: {exc}"
+            error = f"Packet capture failed: {exc}"
+            logger.error("Packet capture failed on interface %s: %s", self._interface, exc)
         except Exception as exc:
-            self._last_error = f"Unexpected capture error: {exc}"
+            error = f"Unexpected capture error: {exc}"
+            logger.exception("Unexpected packet capture failure on interface %s", self._interface)
         finally:
             with self._lock:
+                stopped_interface = self._interface
+                self._last_error = error
                 self._running = False
                 self._interface = None
+            logger.info("Packet capture stopped on interface %s", stopped_interface)
 
     def _handle_packet(self, packet: Any) -> None:
         try:
             self._packet_callback(parse_packet(packet))
         except Exception:
             # A malformed packet must not terminate the long-running capture worker.
+            logger.debug("Ignoring malformed packet in capture callback", exc_info=True)
             return
 
     def status(self) -> dict[str, Any]:

@@ -219,6 +219,18 @@ def test_demo_history_is_repeatable_and_clear_preserves_real_data(history):
     assert [item["id"] for item in alert_store.recent()] == ["real"]
 
 
+def test_demo_alert_does_not_leak_into_real_ip_bucket(history):
+    _, repository, _, service = history
+    demo_alert = alert("demo-alert", NOW - 1, demo=True)
+
+    service.record_alert(demo_alert)
+    service.sample_once(NOW)
+    service.clear_demo_data()
+
+    assert repository.top_talkers("1h", NOW) == []
+    assert repository.alerts("1h", NOW) == []
+
+
 def test_csv_report_contains_stored_values_and_empty_message(history):
     _, repository, _, service = history
     assert "No historical data available" in service.csv_report("1h", NOW)

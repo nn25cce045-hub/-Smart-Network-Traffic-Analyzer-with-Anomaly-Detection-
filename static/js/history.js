@@ -147,28 +147,6 @@ document.getElementById("historyRanges").addEventListener("click", event => {
   refreshHistory();
 });
 
-document.getElementById("generateDemoHistory")?.addEventListener("click", async event => {
-  event.currentTarget.disabled = true;
-  try {
-    const result = await Netra.request("/api/history/demo/generate", { method: "POST", body: "{}" });
-    selectedHistoryRange = "1h";
-    document.querySelectorAll("#historyRanges button").forEach(item => item.classList.toggle("active", item.dataset.range === "1h"));
-    Netra.showToast(`${result.message} ${result.samples} samples created.`);
-    await refreshHistory();
-  } catch (error) { Netra.showToast(error.message, true); }
-  finally { event.currentTarget.disabled = false; }
-});
-
-document.getElementById("clearDemoHistory")?.addEventListener("click", async event => {
-  event.currentTarget.disabled = true;
-  try {
-    const result = await Netra.request("/api/history/demo/clear", { method: "POST", body: "{}" });
-    Netra.showToast(result.message);
-    await refreshHistory();
-  } catch (error) { Netra.showToast(error.message, true); }
-  finally { event.currentTarget.disabled = false; }
-});
-
 initializeHistoryCharts();
 refreshHistory();
 window.setInterval(refreshHistory, 10000);

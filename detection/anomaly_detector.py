@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any, TYPE_CHECKING
 
@@ -13,6 +14,9 @@ from network.graph_manager import GraphManager
 
 if TYPE_CHECKING:
     from storage.history_service import HistoryService
+
+
+logger = logging.getLogger(__name__)
 
 
 class AnomalyDetector:
@@ -53,6 +57,10 @@ class AnomalyDetector:
 
     def _record_alert(self, alert: dict[str, Any], timestamp: float) -> dict[str, Any]:
         stored = self.alert_store.add(alert, timestamp=timestamp)
+        logger.warning(
+            "%s alert detected: %s (source=%s destination=%s)",
+            stored["severity"], stored["type"], stored.get("source_ip"), stored.get("destination_ip"),
+        )
         self.graph_manager.apply_alert(stored)
         if self.history_service:
             self.history_service.record_alert(stored)
@@ -73,7 +81,6 @@ class AnomalyDetector:
 
         if scenario == "normal":
             self.traffic_spike_detector.reset()
-            self.graph_manager.reset()
             start = event_time - 14
             for index in range(15):
                 self.traffic_spike_detector.evaluate_sample(
@@ -81,10 +88,12 @@ class AnomalyDetector:
                     bytes_per_second=(24 + (index % 3)) * 500,
                     observed_at=start + index,
                 )
-            self.graph_manager.observe_flow("192.168.1.10", "8.8.8.8", "DNS", 36, 26640, event_time)
-            self.graph_manager.observe_flow("192.168.1.20", "203.0.113.10", "HTTP", 22, 41800, event_time)
-            self.graph_manager.observe_flow("192.168.1.30", "192.168.1.10", "TCP", 18, 12600, event_time)
+            self._populate_demo_graph(event_time)
             return {"scenario": scenario, "alerts_created": 0, "message": "Stable synthetic traffic established a normal baseline."}
+
+        if scenario == "network":
+            self._populate_demo_graph(event_time)
+            return {"scenario": scenario, "alerts_created": 0, "message": "Synthetic network-map metadata was generated."}
 
         if scenario == "port_scan":
             self.port_scan_detector.reset()
@@ -101,7 +110,7 @@ class AnomalyDetector:
                     "protocol": "TCP",
                     "size": 60,
                 }
-                self.graph_manager.observe_packet(packet, observed_at=event_time + offset / 100)
+                self.graph_manager.observe_packet(packet, observed_at=event_time + offset / 100, is_demo=True)
                 alert = self.port_scan_detector.observe(packet, observed_at=event_time + offset / 100)
                 if alert:
                     self._record_alert({**alert, "is_demo": True}, event_time)
@@ -116,7 +125,7 @@ class AnomalyDetector:
             for index in range(minimum):
                 self.traffic_spike_detector.evaluate_sample(40, 20000, start + index)
             alert = self.traffic_spike_detector.evaluate_sample(160, 80000, event_time)
-            self.graph_manager.observe_flow("192.168.1.10", "8.8.8.8", "TCP", 160, 80000, event_time)
+            self.graph_manager.observe_flow("192.168.1.10", "8.8.8.8", "TCP", 160, 80000, event_time, is_demo=True)
             if alert:
                 self._record_alert({**alert, "is_demo": True}, event_time)
             created = self.alert_store.summary()["total_created"] - before
@@ -124,11 +133,17 @@ class AnomalyDetector:
 
         raise ValueError("Unknown demo scenario.")
 
-    def reset_demo_state(self) -> None:
+    def _populate_demo_graph(self, event_time: float) -> None:
+        self.graph_manager.observe_flow("192.168.1.10", "8.8.8.8", "DNS", 36, 26640, event_time, is_demo=True)
+        self.graph_manager.observe_flow("192.168.1.20", "203.0.113.10", "HTTP", 22, 41800, event_time, is_demo=True)
+        self.graph_manager.observe_flow("192.168.1.30", "192.168.1.10", "TCP", 18, 12600, event_time, is_demo=True)
+
+    def reset_demo_state(self) -> dict[str, Any]:
         if self.history_service:
-            self.history_service.clear_demo_data()
+            history_deleted = self.history_service.clear_demo_data()
         else:
-            self.alert_store.clear_demo()
+            history_deleted = {"memory_alerts": self.alert_store.clear_demo()}
         self.port_scan_detector.reset()
         self.traffic_spike_detector.reset()
-        self.graph_manager.reset()
+        graph_deleted = self.graph_manager.clear_demo_data()
+        return {"history": history_deleted, "graph": graph_deleted}

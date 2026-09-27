@@ -1,6 +1,6 @@
 # Smart Network Traffic Analyzer
 
-A passive, real-time network monitoring, explainable anomaly-detection, communication-visualization, and historical analytics dashboard built as a three-student college mini-project. Part 1 captures traffic, Part 2 analyzes suspicious patterns, Part 3 maps observed communication, and Part 4 stores aggregate history for review and reporting.
+A passive, real-time network monitoring, explainable anomaly-detection, communication-visualization, and historical analytics dashboard built as a three-student college mini-project. Version **1.0.0** integrates live capture, anomaly detection, the observed network map, persistent aggregate history and reporting in one application.
 
 > Use this application only on networks and devices you own or are authorized to monitor. It does not inject, modify, or generate network traffic.
 
@@ -75,7 +75,7 @@ The newest 500 structured alerts are kept in a thread-safe in-memory deque for f
 
 ### Safe demo mode
 
-The Alerts page includes controls for stable traffic, a port-scan-like pattern, and a traffic spike. Demo mode passes numeric samples and documentation-range IP metadata (`192.0.2.0/24` and `198.51.100.0/24`) directly to detectors. It does **not** open sockets, send packets, scan hosts, or flood a network. Stop live capture before using demo actions.
+The Alerts page centralizes controls for stable traffic, a port-scan-like pattern, a traffic spike, a demo network, demo history and safe clearing. Demo mode passes numeric samples and documentation/private example IP metadata directly to internal components. It does **not** open sockets, send packets, scan hosts, or flood a network. Stop live capture before using demo actions.
 
 Demo mode is enabled by default for presentations. Disable it before starting the app with:
 
@@ -132,7 +132,7 @@ No physical device type is inferred from an IP address.
 
 The graph does not run another detector. When Part 2 creates a Warning or Critical alert associated with an observed source IP, the existing alert coordinator updates that node's status and alert count. Critical status takes precedence over Warning.
 
-Safe demo actions now also submit synthetic flows to the graph manager. **Simulate Normal Traffic** starts a small synthetic topology, **Simulate Port-Scan Pattern** adds a source node that becomes Warning through the real Part 2 detector, and **Simulate Traffic Spike** increases a synthetic edge's traffic. No packets are sent. **Reset Demo Data** clears alerts, detector state, and the in-memory graph while capture is stopped.
+Safe demo actions also submit marked synthetic flows to the graph manager. **Simulate Normal Traffic** and **Generate Demo Network** build a small topology, **Simulate Port-Scan-Like Pattern** adds a source node that becomes Warning through the real detector, and **Simulate Traffic Spike** increases a synthetic edge's traffic. No packets are sent. **Clear Demo Data** subtracts synthetic graph contributions and preserves genuine observed traffic.
 
 ### Expiration and performance limits
 
@@ -182,7 +182,7 @@ Open **History / Analytics** in the sidebar to select 15 minutes, 1 hour, 6 hour
 
 ### Safe historical demo
 
-With demo mode enabled, **Generate Demo History** creates a repeatable 30-minute aggregate timeline with normal traffic, growth, a critical spike, a warning port pattern, and recovery. It inserts database rows directly and sends no network packets. All synthetic rows and alerts are marked `is_demo=1`; **Clear Demo Data** deletes only those marked rows and preserves real captured history.
+With demo mode enabled, **Generate Demo History** in the Alerts page creates a repeatable 30-minute aggregate timeline with normal traffic, growth, a critical spike, a warning port pattern, and recovery. It inserts database rows directly and sends no network packets. All synthetic rows and alerts are marked `is_demo=1`; **Clear Demo Data** deletes only marked rows and preserves real captured history.
 
 ## Technology stack
 
@@ -215,6 +215,13 @@ With demo mode enabled, **Generate Demo History** creates a repeatable 30-minute
 │   ├── baseline.py                # Rolling moving-average helper
 │   ├── port_scan_detector.py      # Unique-port rolling-window detector
 │   └── traffic_spike_detector.py  # Per-second baseline and spike detector
+├── docs/
+│   ├── ARCHITECTURE.md             # Data flow, components, threading, and privacy
+│   ├── DEMO_GUIDE.md               # Six-scene presentation and fallback procedure
+│   ├── MANUAL_TEST_CHECKLIST.md    # Frontend/live-capture verification checklist
+│   ├── PROJECT_REPORT_CONTENT.md   # Structured college report material
+│   ├── TEAM_RESPONSIBILITIES.md    # Three-person ownership and shared knowledge
+│   └── VIVA_QUESTIONS.md           # 40 concise technical viva answers
 ├── network/
 │   ├── __init__.py
 │   └── graph_manager.py           # Bounded passive node/edge aggregation
@@ -228,7 +235,7 @@ With demo mode enabled, **Generate Demo History** creates a repeatable 30-minute
 │       ├── common.js              # Shared formatting, API, header, and toast helpers
 │       ├── alerts.js              # Alert filters, polling, status, and safe demo controls
 │       ├── dashboard.js           # Capture controls, charts, status, and recent alerts
-│       ├── history.js             # Historical charts, tables, filters, and demo controls
+│       ├── history.js             # Historical charts, tables, and time filters
 │       ├── network.js             # Cytoscape updates, filters, controls, and details
 │       ├── packets.js             # Live table polling, filtering, and IP search
 │       └── traffic.js             # Traffic Analysis page charts
@@ -284,6 +291,8 @@ Start the development server:
 python app.py
 ```
 
+Startup logs show the application version, database initialization, demo-mode state and local URL. Debug mode is disabled by default; set `NETRA_DEBUG=1` only when developing. The reloader remains disabled to prevent duplicate capture/history workers.
+
 Open [http://127.0.0.1:5000](http://127.0.0.1:5000) in a browser. Select an interface on the Dashboard, then choose **Start Capture**.
 
 For a development-only alternative, use:
@@ -332,10 +341,10 @@ Never expose this development server publicly or run untrusted code with elevate
 | `GET` | `/api/history/export` | CSV report generated from stored data |
 | `POST` | `/api/history/demo/generate` | Insert a safe 30-minute synthetic aggregate timeline |
 | `POST` | `/api/history/demo/clear` | Delete only rows and alerts marked as demo data |
-| `POST` | `/api/demo/simulate` | Submit a safe synthetic `normal`, `port_scan`, or `traffic_spike` scenario |
-| `POST` | `/api/demo/reset` | Clear alert, detector, and synthetic graph state while capture is stopped |
+| `POST` | `/api/demo/simulate` | Submit a safe synthetic `normal`, `port_scan`, `traffic_spike`, or `network` scenario |
+| `POST` | `/api/demo/reset` | Clear only synthetic alerts/history/graph contributions and reset detector demo state |
 
-Errors are returned as JSON with an `error` field and an appropriate 4xx/5xx status.
+API errors return `{"success": false, "error": "Human-readable message"}` with an appropriate 4xx/5xx status. Unexpected server details are logged rather than exposed to the browser.
 
 ## How the measurements work
 
@@ -357,6 +366,8 @@ All tunable values are together in `config.py`:
 
 | Setting | Default | Meaning |
 |---|---:|---|
+| `APP_VERSION` | `1.0.0` | Displayed final project version |
+| `PACKET_HISTORY_LIMIT` | 1000 | Maximum recent live packet rows retained |
 | `PORT_SCAN_PORT_THRESHOLD` | 15 | Unique ports needed for a warning |
 | `PORT_SCAN_WINDOW_SECONDS` | 10 | Rolling port observation window |
 | `PORT_SCAN_ALERT_COOLDOWN` | 60 | Duplicate alert suppression period |
@@ -378,6 +389,7 @@ All tunable values are together in `config.py`:
 | `HISTORY_RETENTION_DAYS` | 7 | Traffic/IP/connection retention |
 | `ALERT_RETENTION_DAYS` | 30 | Persisted alert retention |
 | `HISTORY_CLEANUP_INTERVAL_SECONDS` | 3600 | Minimum interval between cleanup runs |
+| `DEMO_MODE_ENABLED` | enabled | Safe internal demo controls; set `NETRA_DEMO_MODE=0` to disable |
 
 Restart the Flask process after changing these values.
 
@@ -395,6 +407,33 @@ To perform a syntax/import check:
 python -m compileall app.py config.py analysis capture detection network storage tests
 python -c "from app import create_app; print(create_app().url_map)"
 ```
+
+The tests use synthetic packets/metadata and temporary SQLite files. They do not scan hosts or require raw-socket privileges.
+
+## Application pages
+
+- **Dashboard:** capture controls, live status, headline metrics, recent alerts, topology overview and charts.
+- **Live Packets:** bounded packet metadata with protocol filters and IP search.
+- **Traffic Analysis:** live rate/throughput, baseline, deviation, protocols and unique IP counts.
+- **Alerts:** severity/type filtering plus all centralized safe demo controls.
+- **Network Map:** interactive observed-IP graph, filters, details, pause/resume, fit and legend.
+- **History / Analytics:** selected-range summaries, historical charts, comparison, rankings, alerts and reports.
+
+## Project team modules
+
+- **Member 1 — Network Monitoring:** capture, parsing, metrics, Dashboard and Live Packets.
+- **Member 2 — Anomaly Detection:** baseline, port pattern, traffic spike, alerts and false-positive controls.
+- **Member 3 — Visualization & Analytics:** graph, SQLite history, comparisons and reports.
+
+See [Team Responsibilities](docs/TEAM_RESPONSIBILITIES.md) for code ownership and shared integration knowledge.
+
+## Presentation and report documentation
+
+- [Demonstration Guide](docs/DEMO_GUIDE.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Manual Test Checklist](docs/MANUAL_TEST_CHECKLIST.md)
+- [Viva Questions](docs/VIVA_QUESTIONS.md)
+- [Project Report Content](docs/PROJECT_REPORT_CONTENT.md)
 
 ## Troubleshooting
 
@@ -422,6 +461,10 @@ python -c "from app import create_app; print(create_app().url_map)"
 - The frontend polls the APIs; it does not yet use WebSockets.
 - Counts describe captured packets, not necessarily every packet that crossed the physical interface.
 
-## Future Part 5
+## Ethical use
 
-Part 5 is intentionally not implemented in this version. Possible future work includes authenticated multi-user access, configurable dashboards, and production deployment hardening.
+Use the project only on systems and networks you own or are explicitly authorized to monitor. Protect the SQLite database and exported reports. The project does not include active scanning, exploitation, credential extraction, decryption, packet injection, denial-of-service behavior or attack automation. An alert is an explainable observation for review, not a verdict about a person or device.
+
+## Future improvements
+
+Possible future work—not implemented in v1.0.0—includes offline PCAP import, configurable thresholds, authentication, email notifications, a server database, distributed sensors, richer protocol analysis, carefully validated device identification and evaluated machine-learning methods such as Isolation Forest.

@@ -37,7 +37,7 @@ async function refreshAnalysis() {
     document.getElementById("analysisDestinations").textContent = Netra.formatNumber(baseline.unique_destination_ips);
     document.getElementById("baselineReadiness").textContent = baseline.baseline_ready
       ? `${baseline.baseline_samples} samples · Ready`
-      : `${baseline.baseline_samples} / 10 samples · Warming up`;
+      : `${baseline.baseline_samples} / ${baseline.minimum_samples_required} samples · Warming up`;
 
     const names = Object.keys(Netra.protocolColors);
     const total = Object.values(stats.protocols).reduce((sum, value) => sum + value, 0);

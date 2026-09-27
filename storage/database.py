@@ -88,13 +88,15 @@ class Database:
     def initialize(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.connection() as connection:
+            # WAL is a persistent database setting; configure it once rather
+            # than repeating the journal-mode operation on every query.
+            connection.execute("PRAGMA journal_mode=WAL")
             connection.executescript(SCHEMA)
 
     @contextmanager
     def connection(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.path, timeout=10)
         connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA journal_mode=WAL")
         connection.execute("PRAGMA foreign_keys=ON")
         connection.execute("PRAGMA busy_timeout=5000")
         try:
@@ -105,4 +107,3 @@ class Database:
             raise
         finally:
             connection.close()
-

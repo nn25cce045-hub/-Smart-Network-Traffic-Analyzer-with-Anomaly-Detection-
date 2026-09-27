@@ -13,9 +13,8 @@
     </div>
     <label class="search-box"><span>⌕</span><input type="search" id="ipSearch" placeholder="Search source or destination IP" autocomplete="off"></label>
   </div>
-  <div class="packet-summary"><span><b id="visibleCount">0</b> packets shown</span><span>Backend retains latest 1,000</span></div>
+  <div class="packet-summary"><span><b id="visibleCount">0</b> packets shown</span><span>Backend retains latest {{ config.PACKET_HISTORY_LIMIT }}</span></div>
   <div class="table-scroll packet-table-wrap"><table class="packet-table"><thead><tr><th>TIME</th><th>SOURCE IP</th><th>SOURCE PORT</th><th>DESTINATION IP</th><th>DEST. PORT</th><th>PROTOCOL</th><th>SIZE</th></tr></thead><tbody id="packetRows"><tr class="empty-row"><td colspan="7">No packets captured yet.</td></tr></tbody></table></div>
 </section>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='js/packets.js') }}"></script>{% endblock %}
-

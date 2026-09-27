@@ -6,7 +6,13 @@ import os
 from pathlib import Path
 
 
-MAX_PACKET_RESULTS = 1000
+APP_VERSION = "1.0.0"
+DEBUG = os.getenv("NETRA_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}
+LOG_LEVEL = os.getenv("NETRA_LOG_LEVEL", "INFO").upper()
+
+PACKET_HISTORY_LIMIT = 1000
+# Backward-compatible alias used by earlier Parts 1-4 code and configurations.
+MAX_PACKET_RESULTS = PACKET_HISTORY_LIMIT
 MAX_ALERTS = 500
 NETWORK_STATUS_WINDOW_SECONDS = 120
 
@@ -29,7 +35,8 @@ TRAFFIC_SPIKE_ALERT_COOLDOWN = 60
 
 # Demo mode only submits documentation-range IP metadata and numeric traffic
 # samples to detectors. It never opens a socket or sends a packet.
-DEMO_MODE = os.getenv("NETRA_DEMO_MODE", "1").strip().lower() not in {"0", "false", "no", "off"}
+DEMO_MODE_ENABLED = os.getenv("NETRA_DEMO_MODE", "1").strip().lower() not in {"0", "false", "no", "off"}
+DEMO_MODE = DEMO_MODE_ENABLED
 
 # Passive graph retention and hard limits protect both server and browser memory.
 GRAPH_EDGE_TTL_SECONDS = 300

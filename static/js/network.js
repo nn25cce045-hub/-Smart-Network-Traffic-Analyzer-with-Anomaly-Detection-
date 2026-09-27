@@ -2,6 +2,7 @@
 
 let graph;
 let liveUpdates = true;
+let graphHasLayout = false;
 let latestGraphData = { nodes: [], edges: [], stats: {} };
 
 function formatBytes(value) {
@@ -105,7 +106,13 @@ function updateGraphElements(data) {
       else graph.add({ group: "edges", data: edge });
     });
   });
-  if (addedNodes) graph.layout({ name: "cose", animate: false, fit: true, padding: 55, randomize: addedNodes === data.nodes.length }).run();
+  if (addedNodes) {
+    graph.layout({
+      name: "cose", animate: false, fit: !graphHasLayout, padding: 55,
+      randomize: !graphHasLayout
+    }).run();
+    graphHasLayout = true;
+  }
   applyGraphFilters();
 }
 

@@ -124,3 +124,24 @@ def test_synthetic_demo_builds_graph_and_marks_scan_source(tmp_path):
     assert scan_source["status"] == "WARNING"
     assert scan_source["alert_count"] == 1
     assert scan_graph["stats"]["suspicious_devices"] == 1
+
+
+def test_clear_demo_graph_preserves_real_traffic_and_alert_status():
+    graph = GraphManager()
+    graph.observe_flow("192.168.1.10", "8.8.8.8", "TCP", 4, 400, observed_at=100)
+    graph.apply_alert({"severity": "WARNING", "source_ip": "192.168.1.10", "is_demo": False})
+    graph.observe_flow("192.168.1.10", "8.8.8.8", "DNS", 6, 600, observed_at=101, is_demo=True)
+    graph.observe_flow("192.168.1.20", "203.0.113.10", "HTTP", 3, 300, observed_at=101, is_demo=True)
+    graph.apply_alert({"severity": "CRITICAL", "source_ip": "192.168.1.10", "is_demo": True})
+
+    deleted = graph.clear_demo_data()
+    snapshot = graph.snapshot(now=101)
+    real_node = next(node for node in snapshot["nodes"] if node["id"] == "192.168.1.10")
+
+    assert deleted == {"nodes": 2, "edges": 1}
+    assert snapshot["stats"]["observed_devices"] == 2
+    assert snapshot["edges"][0]["packet_count"] == 4
+    assert snapshot["edges"][0]["protocols"] == {"TCP": 4}
+    assert real_node["packet_count"] == 4
+    assert real_node["status"] == "WARNING"
+    assert real_node["alert_count"] == 1

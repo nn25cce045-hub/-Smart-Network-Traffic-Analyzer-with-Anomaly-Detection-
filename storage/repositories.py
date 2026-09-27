@@ -246,7 +246,9 @@ class HistoryRepository:
             "by_severity": by_severity,
             "most_frequently_alerted_source": frequent_source,
             "recent": list(reversed(alerts[-20:])),
-            "timeline": alerts,
+            # Keep the browser/API payload bounded while counts still cover
+            # every retained alert in the selected period.
+            "timeline": alerts[-500:],
         }
 
     def comparison(self, range_key: str, now: float | None = None) -> dict[str, Any]:

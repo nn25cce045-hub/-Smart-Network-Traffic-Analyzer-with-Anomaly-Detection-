@@ -19,9 +19,9 @@
   <article class="panel chart-panel wide"><header><div><small>ANOMALY EVIDENCE</small><h2>Current traffic vs baseline</h2></div><span class="panel-tag">COMPLETED 1-SECOND SAMPLES</span></header><div class="chart-wrap line-chart"><canvas id="analysisTrafficChart"></canvas></div></article>
 </section>
 <section class="info-grid">
-  <article class="panel explanation-card"><span>01</span><h3>Rolling baseline</h3><p>Up to 30 recent non-anomalous one-second samples form the moving average. Detection waits for 10 samples.</p></article>
-  <article class="panel explanation-card"><span>02</span><h3>Spike threshold</h3><p>A completed second must reach at least 3× a baseline of 5 packets/sec or more before an alert is considered.</p></article>
-  <article class="panel explanation-card"><span>03</span><h3>False-positive control</h3><p>Warm-up, minimum activity, a 60-second cooldown, and exclusion of anomalous samples keep alerts understandable.</p></article>
+  <article class="panel explanation-card"><span>01</span><h3>Rolling baseline</h3><p>Up to {{ config.TRAFFIC_BASELINE_WINDOW }} recent non-anomalous one-second samples form the moving average. Detection waits for {{ config.TRAFFIC_MIN_BASELINE_SAMPLES }} samples.</p></article>
+  <article class="panel explanation-card"><span>02</span><h3>Spike threshold</h3><p>A completed second must reach at least {{ config.TRAFFIC_SPIKE_MULTIPLIER }}× a baseline of {{ config.TRAFFIC_MIN_BASELINE_PPS }} packets/sec or more before an alert is considered.</p></article>
+  <article class="panel explanation-card"><span>03</span><h3>False-positive control</h3><p>Warm-up, minimum activity, a {{ config.TRAFFIC_SPIKE_ALERT_COOLDOWN }}-second cooldown, and exclusion of anomalous samples keep alerts understandable.</p></article>
 </section>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='js/traffic.js') }}"></script>{% endblock %}

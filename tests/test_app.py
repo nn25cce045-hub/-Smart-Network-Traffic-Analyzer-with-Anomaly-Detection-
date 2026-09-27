@@ -32,6 +32,7 @@ def test_packet_limit_validation(client):
 
     assert response.status_code == 400
     assert "error" in response.get_json()
+    assert response.get_json()["success"] is False
 
 
 def test_capture_start_requires_interface(client):
@@ -49,6 +50,7 @@ def test_anomaly_apis_have_empty_initial_state(client):
     assert alerts["summary"]["total"] == 0
     assert status["network_status"] == "NORMAL"
     assert baseline["baseline_ready"] is False
+    assert baseline["minimum_samples_required"] == 10
     assert baseline["unique_source_ips"] == 0
 
 
@@ -60,6 +62,24 @@ def test_synthetic_demo_creates_alert_without_capture(client):
     assert response.get_json()["alerts_created"] == 1
     assert alerts["alerts"][0]["type"] == "PORT_SCAN"
     assert alerts["alerts"][0]["source_ip"] == "198.51.100.25"
+
+
+def test_demo_network_and_unified_clear_preserve_real_graph(client):
+    graph = client.application.extensions["graph_manager"]
+    now = __import__("time").time()
+    graph.observe_flow("10.0.0.1", "8.8.8.8", "TCP", 2, 200, observed_at=now)
+
+    generated = client.post("/api/demo/simulate", json={"scenario": "network"})
+    before_clear = client.get("/api/network/graph").get_json()
+    cleared = client.post("/api/demo/reset")
+    after_clear = client.get("/api/network/graph").get_json()
+
+    assert generated.status_code == 200
+    assert before_clear["stats"]["observed_devices"] > 2
+    assert cleared.status_code == 200
+    assert cleared.get_json()["deleted"]["graph"]["nodes"] > 0
+    assert after_clear["stats"]["observed_devices"] == 2
+    assert after_clear["edges"][0]["packet_count"] == 2
 
 
 def test_demo_mode_can_be_disabled(tmp_path):

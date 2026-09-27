@@ -16,12 +16,14 @@
 
 {% if demo_mode %}
 <section class="panel demo-panel">
-  <div><p class="eyebrow">DEMO — SYNTHETIC DATA ONLY</p><h2>Safe presentation controls</h2><p>These actions submit internal metadata to the detectors. They do not send packets, scan hosts, or create network traffic.</p></div>
+  <div><p class="eyebrow">DEMO MODE — SYNTHETIC DATA ONLY</p><h2>Safe presentation controls</h2><p>All demonstration actions are centralized here. They modify internal data only and never send packets, scan hosts, or create network traffic.</p></div>
   <div class="demo-actions">
     <button class="btn demo-btn" data-scenario="normal">SIMULATE NORMAL TRAFFIC</button>
-    <button class="btn demo-btn warning" data-scenario="port_scan">SIMULATE PORT-SCAN PATTERN</button>
+    <button class="btn demo-btn warning" data-scenario="port_scan">SIMULATE PORT-SCAN-LIKE PATTERN</button>
     <button class="btn demo-btn critical" data-scenario="traffic_spike">SIMULATE TRAFFIC SPIKE</button>
-    <button class="btn demo-reset" id="resetDemo">RESET DEMO DATA</button>
+    <button class="btn demo-btn" data-scenario="network">GENERATE DEMO NETWORK</button>
+    <button class="btn demo-btn" id="generateDemoHistory">GENERATE DEMO HISTORY</button>
+    <button class="btn demo-reset" id="resetDemo">CLEAR DEMO DATA</button>
   </div>
 </section>
 {% endif %}
@@ -33,7 +35,7 @@
     </div>
     <label class="search-box"><span>⌕</span><input type="search" id="alertSearch" placeholder="Search IP or description" autocomplete="off"></label>
   </div>
-  <div class="packet-summary"><span><b id="visibleAlertCount">0</b> alerts shown</span><span>Latest 500 retained in memory</span></div>
+  <div class="packet-summary"><span><b id="visibleAlertCount">0</b> alerts shown</span><span>Latest {{ config.MAX_ALERTS }} retained in memory and persisted to history</span></div>
   <div class="table-scroll alert-table-wrap"><table class="alert-table"><thead><tr><th>TIME</th><th>SEVERITY</th><th>TYPE</th><th>SOURCE</th><th>DESTINATION</th><th>DESCRIPTION</th></tr></thead><tbody id="alertRows"><tr class="empty-row"><td colspan="6">No anomaly alerts have been generated.</td></tr></tbody></table></div>
 </section>
 {% endblock %}

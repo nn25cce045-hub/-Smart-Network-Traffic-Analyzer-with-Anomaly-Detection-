@@ -6,6 +6,7 @@ import atexit
 from collections import Counter
 import csv
 from io import StringIO
+import logging
 from threading import Event, Lock, RLock, Thread, current_thread
 import time
 from typing import Any
@@ -14,6 +15,9 @@ from uuid import uuid4
 from detection.alert_store import AlertStore
 from detection.traffic_spike_detector import TrafficSpikeDetector
 from storage.repositories import HistoryRepository, RANGE_SECONDS
+
+
+logger = logging.getLogger(__name__)
 
 
 PROTOCOL_COLUMNS = {
@@ -143,6 +147,7 @@ class HistoryService:
         self._thread: Thread | None = None
         self._start_lock = Lock()
         self._last_cleanup = 0.0
+        self._atexit_registered = False
 
     def start(self) -> None:
         """Start one daemon sampler; repeated calls are harmless."""
@@ -152,7 +157,9 @@ class HistoryService:
             self._stop_event.clear()
             self._thread = Thread(target=self._run, name="history-sampler", daemon=True)
             self._thread.start()
-            atexit.register(self.stop)
+            if not self._atexit_registered:
+                atexit.register(self.stop)
+                self._atexit_registered = True
 
     def stop(self) -> None:
         self._stop_event.set()
@@ -168,6 +175,7 @@ class HistoryService:
             except Exception:
                 # Capture and Flask must remain available if a transient database
                 # error occurs; the next interval will retry with a new connection.
+                logger.exception("Historical sampler failed; retrying next interval")
                 continue
 
     def observe_packet(self, packet: dict[str, Any]) -> None:
@@ -175,7 +183,10 @@ class HistoryService:
 
     def record_alert(self, alert: dict[str, Any]) -> None:
         self.repository.insert_alert(alert)
-        self.accumulator.observe_alert(alert)
+        # Synthetic alert counts must never leak into the next real IP bucket
+        # after Clear Demo Data. Demo history supplies its own marked IP rows.
+        if not alert.get("is_demo", False):
+            self.accumulator.observe_alert(alert)
 
     def sample_once(self, timestamp: float | None = None) -> dict[str, Any]:
         bucket = self.accumulator.drain(timestamp)
@@ -215,6 +226,10 @@ class HistoryService:
             for key, stats in bucket["connections"].items()
         ]
         self.repository.insert_sample(sample, ip_rows, connection_rows)
+        logger.debug(
+            "Stored history sample: packets=%s bytes=%s ips=%s connections=%s",
+            total_packets, total_bytes, len(ip_rows), len(connection_rows),
+        )
         return sample
 
     def cleanup_if_due(self, now: float | None = None, force: bool = False) -> dict[str, int] | None:
@@ -222,10 +237,13 @@ class HistoryService:
         if not force and current - self._last_cleanup < self.cleanup_interval_seconds:
             return None
         self._last_cleanup = current
-        return self.repository.cleanup(
+        deleted = self.repository.cleanup(
             current - self.history_retention_days * 86400,
             current - self.alert_retention_days * 86400,
         )
+        if any(deleted.values()):
+            logger.info("Historical retention cleanup removed rows: %s", deleted)
+        return deleted
 
     def restore_alerts(self, limit: int = 500) -> int:
         restored = self.repository.load_recent_alerts(limit)
@@ -377,11 +395,14 @@ class HistoryService:
         self.repository.insert_dataset(samples, ip_rows, connection_rows, alerts)
         for alert in alerts:
             self.alert_store.add(alert, timestamp=alert["timestamp_epoch"], alert_id=alert["id"])
-        return {"samples": len(samples), "ip_rows": len(ip_rows), "connections": len(connection_rows), "alerts": len(alerts)}
+        result = {"samples": len(samples), "ip_rows": len(ip_rows), "connections": len(connection_rows), "alerts": len(alerts)}
+        logger.info("Generated synthetic history: %s", result)
+        return result
 
     def clear_demo_data(self) -> dict[str, int]:
         deleted = self.repository.clear_demo_data()
         deleted["memory_alerts"] = self.alert_store.clear_demo()
+        logger.info("Cleared synthetic historical data: %s", deleted)
         return deleted
 
     def csv_report(self, range_key: str, now: float | None = None) -> str:
