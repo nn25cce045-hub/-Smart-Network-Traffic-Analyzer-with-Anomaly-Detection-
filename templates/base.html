@@ -1,9 +1,20 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Passive real-time network traffic monitoring dashboard">
+  <script>
+    (() => {
+      const saved = localStorage.getItem("netra-theme");
+      const preference = ["light", "dark", "system"].includes(saved) ? saved : "dark";
+      const resolved = preference === "system"
+        ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        : preference;
+      document.documentElement.dataset.theme = resolved;
+      document.documentElement.dataset.themePreference = preference;
+    })();
+  </script>
   <title>{% block title %}Overview{% endblock %} · Smart Network Traffic Analyzer</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -57,6 +68,15 @@
         <div class="breadcrumb"><span>MONITOR</span><b>/</b><strong>{% block crumb %}DASHBOARD{% endblock %}</strong></div>
         <div class="topbar-meta">
           <span class="clock" id="liveClock">--:--:--</span>
+          <label class="theme-control" title="Change color theme">
+            <span aria-hidden="true" id="themeIcon">◐</span>
+            <span class="sr-only">Color theme</span>
+            <select id="themeSelector" aria-label="Change color theme">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="system">System</option>
+            </select>
+          </label>
           <span class="capture-chip stopped" id="globalCaptureState"><i></i> STOPPED</span>
         </div>
       </header>

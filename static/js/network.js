@@ -60,6 +60,23 @@ function showDetailsPlaceholder() {
   document.getElementById("graphDetails").innerHTML = '<div class="details-placeholder"><span>⌘</span><h2>Select a node or connection</h2><p>Details about observed traffic and security status will appear here.</p></div>';
 }
 
+function applyGraphTheme() {
+  if (!graph) return;
+  const light = document.documentElement.dataset.theme === "light";
+  graph.style()
+    .selector("node").style({
+      "color": light ? "#263742" : "#c8d2dd",
+      "background-color": light ? "#788996" : "#738196",
+      "border-color": light ? "#536673" : "#9aa7b6",
+      "text-background-color": light ? "#f4f8f8" : "#0a0f17",
+      "text-background-opacity": .82,
+      "text-background-padding": 2
+    })
+    .selector("edge").style({ "line-color": light ? "#8b9ba6" : "#3c4b5e", "opacity": light ? .82 : .68 })
+    .selector(":selected").style({ "border-color": light ? "#17232d" : "#ffffff", "line-color": "#36e3c1", "opacity": 1 })
+    .update();
+}
+
 function initializeGraph() {
   if (typeof cytoscape === "undefined") {
     document.getElementById("graphEmpty").innerHTML = "<strong>GRAPH LIBRARY COULD NOT LOAD</strong><span>Check the internet connection for Cytoscape.js.</span>";
@@ -87,6 +104,7 @@ function initializeGraph() {
   graph.on("tap", "node", event => showNodeDetails(event.target));
   graph.on("tap", "edge", event => showEdgeDetails(event.target));
   graph.on("tap", event => { if (event.target === graph) showDetailsPlaceholder(); });
+  applyGraphTheme();
 }
 
 function updateGraphElements(data) {
@@ -202,3 +220,4 @@ async function startNetworkMap() {
 }
 
 startNetworkMap();
+window.addEventListener("netra:themechange", applyGraphTheme);
